@@ -1,21 +1,37 @@
 import numpy as np
 
-class Linear:
-    def __init__(self, input_dim: int, output_dim: int):
-        self.W = np.random.randn(input_dim, output_dim) * 0.01
-        self.b = np.zeros((1, output_dim))
+class ReLU:
+    @staticmethod
+    def forward(Z):
+        return np.maximum(0, Z)
 
-    def forward(self, X: np.ndarray) -> np.ndarray:
-        self.X = X
-        return X @ self.W + self.b
+    @staticmethod
+    def backward(dA, Z):
+        dZ = dA.copy()
+        dZ[Z <= 0] = 0
+        return dZ
 
-    def backward(self, dZ: np.ndarray) -> np.ndarray:
-        m = self.X.shape[0]
-        self.dW = self.X.T @ dZ / m
-        self.db = np.sum(dZ, axis=0, keepdims=True) / m
-        dX = dZ @ self.W.T
-        return dX
+class Sigmoid:
+    @staticmethod
+    def forward(Z):
+        return 1 / (1 + np.exp(-Z))
 
-    def step(self, lr: float):
-        self.W -= lr * self.dW
-        self.b -= lr * self.db
+    @staticmethod
+    def backward(dA, Z):
+        A = Sigmoid.forward(Z)
+        return dA * A * (1 - A)
+
+class Tanh:
+    @staticmethod
+    def forward(Z):
+        return np.tanh(Z)
+
+    @staticmethod
+    def backward(dA, Z):
+        A = np.tanh(Z)
+        return dA * (1 - A**2)
+
+def softmax(Z):
+    Z_shift = Z - np.max(Z, axis=1, keepdims=True)
+    exp_Z = np.exp(Z_shift)
+    return exp_Z / np.sum(exp_Z, axis=1, keepdims=True)

@@ -1,10 +1,15 @@
 import numpy as np
 
-def accuracy(y_pred, y_true):
-    return (y_pred.argmax(axis=1) == y_true.argmax(axis=1)).mean()
+def accuracy(probs, Y):
+    preds = np.argmax(probs, axis=1)
+    labels = np.argmax(Y, axis=1)
+    return np.mean(preds == labels)
 
-def create_batches(X, Y, batch_size):
-    idx = np.random.permutation(len(X))
-    X, Y = X[idx], Y[idx]
-    for i in range(0, len(X), batch_size):
-        yield X[i:i+batch_size], Y[i:i+batch_size]
+def create_batches(X, Y, batch_size=64):
+    m = X.shape[0]
+    indices = np.arange(m)
+    np.random.shuffle(indices)
+    for start in range(0, m, batch_size):
+        end = start + batch_size
+        batch_idx = indices[start:end]
+        yield X[batch_idx], Y[batch_idx]

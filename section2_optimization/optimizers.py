@@ -1,53 +1,100 @@
 import numpy as np
 
 class SGD:
-    def __init__(self, params, lr=0.01):
-        self.params = params
+    """Stochastic Gradient Descent with momentum"""
+    def __init__(self, lr=0.01, momentum=0.0, nesterov=False):
         self.lr = lr
-
-    def step(self):
-        for p in self.params:
-            p['W'] -= self.lr * p['dW']
-            p['b'] -= self.lr * p['db']
+        self.momentum = momentum
+        self.nesterov = nesterov
+        self.velocity = {}
+        
+    def step(self, model):
+        """Update parameters using SGD"""
+        params = model.parameters()
+        grads = model.gradients()
+        
+        for key in params:
+            if key not in self.velocity:
+                self.velocity[key] = np.zeros_like(params[key])
+            
+            # Momentum update
+            self.velocity[key] = self.momentum * self.velocity[key] - self.lr * grads[key]
+            
+            if self.nesterov:
+                # Nesterov accelerated gradient
+                params[key] += self.momentum * self.velocity[key] - self.lr * grads[key]
+            else:
+                # Standard momentum
+                params[key] += self.velocity[key]
 
 class RMSprop:
-    def __init__(self, params, lr=0.001, beta=0.9, eps=1e-8):
-        self.params = params
+    """RMSprop optimizer"""
+    def __init__(self, lr=0.001, beta=0.9, epsilon=1e-8):
         self.lr = lr
         self.beta = beta
-        self.eps = eps
-        self.s = [{'dW': np.zeros_like(p['W']), 'db': np.zeros_like(p['b'])} for p in params]
-
-    def step(self):
-        for i, p in enumerate(self.params):
-            self.s[i]['dW'] = self.beta*self.s[i]['dW'] + (1-self.beta)*(p['dW']**2)
-            self.s[i]['db'] = self.beta*self.s[i]['db'] + (1-self.beta)*(p['db']**2)
-            p['W'] -= self.lr * p['dW'] / (np.sqrt(self.s[i]['dW']) + self.eps)
-            p['b'] -= self.lr * p['db'] / (np.sqrt(self.s[i]['db']) + self.eps)
+        self.epsilon = epsilon
+        self.cache = {}
+        
+    def step(self, model):
+        """Update parameters using RMSprop"""
+        params = model.parameters()
+        grads = model.gradients()
+        
+        for key in params:
+            if key not in self.cache:
+                self.cache[key] = np.zeros_like(params[key])
+            
+            # Update cache: E[g²] = βE[g²] + (1-β)g²
+            self.cache[key] = self.beta * self.cache[key] + (1 - self.beta) * grads[key]**2
+            
+            # Parameter update: θ = θ - η * g / sqrt(E[g²] + ε)
+            params[key] -= self.lr * grads[key] / (np.sqrt(self.cache[key]) + self.epsilon)
 
 class Adam:
-    def __init__(self, params, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
-        self.params = params
+    """Adam optimizer"""
+    def __init__(self, lr=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8):
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
-        self.eps = eps
-        self.m = [{'dW': np.zeros_like(p['W']), 'db': np.zeros_like(p['b'])} for p in params]
-        self.v = [{'dW': np.zeros_like(p['W']), 'db': np.zeros_like(p['b'])} for p in params]
-        self.t = 0
-
-    def step(self):
+        self.epsilon = epsilon
+        self.m = {}  # First moment estimate
+        self.v = {}  # Second moment estimate
+        self.t = 0   # Time step
+        
+    def step(self, model):
+        """Update parameters using Adam"""
+        params = model.parameters()
+        grads = model.gradients()
+        
         self.t += 1
-        for i, p in enumerate(self.params):
-            self.m[i]['dW'] = self.beta1*self.m[i]['dW'] + (1-self.beta1)*p['dW']
-            self.m[i]['db'] = self.beta1*self.m[i]['db'] + (1-self.beta1)*p['db']
-            self.v[i]['dW'] = self.beta2*self.v[i]['dW'] + (1-self.beta2)*(p['dW']**2)
-            self.v[i]['db'] = self.beta2*self.v[i]['db'] + (1-self.beta2)*(p['db']**2)
+        
+        for key in params:
+            if key not in self.m:
+                self.m[key] = np.zeros_like(params[key])
+                self.v[key] = np.zeros_like(params[key])
             
-            m_hat_W = self.m[i]['dW'] / (1 - self.beta1**self.t)
-            m_hat_b = self.m[i]['db'] / (1 - self.beta1**self.t)
-            v_hat_W = self.v[i]['dW'] / (1 - self.beta2**self.t)
-            v_hat_b = self.v[i]['db'] / (1 - self.beta2**self.t)
+            # Update biased first moment estimate
+            self.m[key] = self.beta1 * self.m[key] + (1 - self.beta1) * grads[key]
             
-            p['W'] -= self.lr * m_hat_W / (np.sqrt(v_hat_W) + self.eps)
-            p['b'] -= self.lr * m_hat_b / (np.sqrt(v_hat_b) + self.eps)
+            # Update biased second moment estimate
+            self.v[key] = self.beta2 * self.v[key] + (1 - self.beta2) * grads[key]**2
+            
+            # Compute bias-corrected moment estimates
+            m_hat = self.m[key] / (1 - self.beta1**self.t)
+            v_hat = self.v[key] / (1 - self.beta2**self.t)
+            
+            # Parameter update
+            params[key] -= self.lr * m_hat / (np.sqrt(v_hat) + self.epsilon)
+
+class GradientDescent:
+    """Vanilla Gradient Descent (for comparison)"""
+    def __init__(self, lr=0.01):
+        self.lr = lr
+        
+    def step(self, model):
+        """Update parameters using simple gradient descent"""
+        params = model.parameters()
+        grads = model.gradients()
+        
+        for key in params:
+            params[key] -= self.lr * grads[key]
