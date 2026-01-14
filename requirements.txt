@@ -5,3 +5,5 @@ torch
 torchvision
 pytest
 pytest-xdist
+scikit-learn 
+seaborn
